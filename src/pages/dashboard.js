@@ -1,74 +1,90 @@
-/* eslint-disable no-eval */
-import { useState } from "react";
-import { useSelector } from "react-redux";
+/* eslint-disable no-useless-escape */
+import React, { useRef, useState } from "react";
+import ReactDOMServer from 'react-dom/server';
 
+import { Select, Tag } from "antd";
 
-export default function DashboardPage() {
-    const [showOption, setShowOption] = useState(false);
-    const [optionValue, setOptionValue] = useState("");
-    const option = useSelector((state) => state.keys.keys);
-    const [showResult, setShowResult] = useState(false);
-    const [result, setResult] = useState(0);
+const globalOption = [
+    { id: 1, label: "People Value", value: 10 },
+    { id: 2, label: "Employee Text", value: 20 },
+    { id: 3, label: "Employee Salary", value: 30 },
+];
 
+export default function DashboardPage(params) {
+    const [showMenu, setShowMenu] = useState(false);
+    const editableDiv = useRef();
+    const selectElement = useRef();
+
+    const [options, setOptions] = useState(globalOption);
 
     return (
-        <div className="flex flex-col items-center justify-center w-full min-h-screen p-2">
-            <div className="flex flex-row items-center justify-center space-x-2 w-full max-w-4xl">
-                <div
-                    id="value"
-                    className="w-full max-w-4xl h-10 border border-solid border-black p-2"
-                    contentEditable
-                    onKeyDown={(event) => {
-                    }}
-                    onInput={(event) => {
-                        if (event.target.innerText.includes('@')) {
-                            setShowOption(true);
-                            const option = event.target.innerText.split('@')[event.target.innerText.split('@').length - 1];
-                            setOptionValue(option);
-                        }
-                    }}
-                ></div>
-                <button className="text-white bg-blue-700 rounded p-2 text-base" onClick={() => {
-                    let mathString = document.getElementById('value').innerText;
-                    option.forEach((item) => {
-                        mathString = mathString.replace(item.title, item.value);
-                    })
-                    mathString = mathString.replace(" ", "");
-                    setResult(eval(mathString))
-                    setShowResult(true);
-                    setTimeout(() => {
-                        setShowResult(false);
-                        document.getElementById('value').innerHTML = ""
+        <>
+            <div className="flex flex-col w-full min-h-screen items-center justify-center">
+                <div className="flex flex-col items-center justify-center border border-solid border-black rounded-sm w-full max-w-4xl p-2 relative">
+                    <div
+                        id='editElement'
+                        className="h-6 w-full focus:border-none focus:outline-none z-[1000]"
+                        ref={editableDiv}
+                        contentEditable
+                        onInput={(e) => {
+                            const regex = /[\+\-\*\/\%\^]/g;
+                            const text = e.target.innerText.toString().split(regex).pop().toString().trim();
+                            if (text !== "") {
+                                setOptions((_) => {
+                                    return [
+                                        ...globalOption.filter((item) => {
+                                            return item.label.includes(text);
+                                        }),
+                                    ];
+                                });
+                                setShowMenu(true);
+                            } else {
+                                setShowMenu(false);
+                            }
+                        }}
+                        onKeyDown={(event) => {
+                            if (event.keyCode === 40) {
+                                selectElement.current.focus();
+                            }
+                        }}
+                    >
 
-                    }, 10000)
-                }}>Calculate</button>
+                    </div>
+                    <div className="w-full h-full absolute bottom-0 left-0 z-50 bg-white"></div>
+                    <Select
+                        ref={selectElement}
+                        style={{
+                            width: "100%",
+                            position: "absolute",
+                            bottom: "0px",
+                            left: "0px",
+                            zIndex: 0,
+                        }}
+                        options={options}
+                        onSelect={(val, option) => {
+                            const nodeString = ReactDOMServer.renderToString(<Tag className="m-0" contentEditable={false}>{option.label}</Tag>);
+
+                            const htmlNodeString = document.getElementById('editElement').innerHTML.toString();
+                            let lastIndex = htmlNodeString.lastIndexOf("+");
+                            lastIndex = (lastIndex < htmlNodeString.lastIndexOf("-")) ? htmlNodeString.lastIndexOf("-") : lastIndex;
+                            lastIndex = (lastIndex < htmlNodeString.lastIndexOf("*")) ? htmlNodeString.lastIndexOf("*") : lastIndex;
+                            lastIndex = (lastIndex < htmlNodeString.lastIndexOf("/")) ? htmlNodeString.lastIndexOf("/") : lastIndex;
+                            if (lastIndex) document.getElementById('editElement').innerHTML = htmlNodeString.substring(0, lastIndex + 1);
+
+                            const node = document.createElement('span');
+                            node.innerHTML = nodeString;
+                            node.contentEditable = false
+
+                            document.getElementById('editElement').appendChild(node);
+                            editableDiv.current.focus();
+                            setShowMenu(false);
+
+                        }}
+                        open={showMenu}
+                        showArrow={false}
+                    />
+                </div>
             </div>
-            <div className="flex flex-col w-full max-w-4xl p-2 items-start justify-between">
-                {showOption && option.filter((txt) => {
-                    return optionValue === '' ? true : txt.title.includes(optionValue.substring(1))
-                }).map((txt) => {
-                    return (
-                        <span
-                            className="text-base font-semibold cursor-pointer"
-                            onClick={() => {
-                                const spanChild = document.createElement('span');
-                                spanChild.className = "px-2 py-1 mx-1 rounded-full bg-slate-400 text-white"
-                                spanChild.innerText = txt.title
-                                spanChild.id = txt.id
-                                spanChild.contentEditable = false
-                                const index = document.getElementById('value').innerHTML.indexOf('@');
-                                document.getElementById('value').innerHTML = document.getElementById('value').innerHTML.substring(0, index);
-                                document.getElementById('value').appendChild(spanChild);
-                                setOptionValue('');
-                                setShowOption(false);
-                            }}
-                        >
-                            {txt.title}
-                        </span>
-                    );
-                })}
-            </div>
-            {showResult && <span className="text-2xl font-semibold">{result}</span>}
-        </div>
+        </>
     );
 }
